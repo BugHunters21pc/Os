@@ -407,3 +407,324 @@ int main() {
 
     return 0;
 }
+
+//barber and customer problem using semaphore
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <semaphore.h>
+
+#define NUM_CHAIRS 3
+
+sem_t waiting_room_seats;
+sem_t barber_chair;
+sem_t customer;
+sem_t barber;
+
+void* barber_thread(void* arg);
+void* customer_thread(void* arg);
+
+int main()
+{
+    pthread_t barber_tid;
+    pthread_t customer_tid;
+
+    sem_init(&waiting_room_seats, 0, NUM_CHAIRS);
+    sem_init(&barber_chair, 0, 1);
+    sem_init(&customer, 0, 0);
+    sem_init(&barber, 0, 0);
+
+    pthread_create(&barber_tid, NULL, barber_thread, NULL);
+
+    while(1) {
+        sleep(rand()%10);
+        pthread_create(&customer_tid, NULL, customer_thread, NULL);
+    }
+
+    return 0;
+}
+
+void* barber_thread(void* arg)
+{
+    while(1) {
+        printf("Barber is sleeping.\n");
+        sem_wait(&customer);
+        sem_wait(&waiting_room_seats);
+
+        printf("Barber is cutting hair.\n");
+        sleep(rand()%5);
+
+        sem_post(&barber);
+        sem_post(&waiting_room_seats);
+    }
+}
+
+void* customer_thread(void* arg)
+{
+    if(sem_trywait(&waiting_room_seats) == 0) {
+        printf("Customer is sitting in the waiting room.\n");
+        sem_post(&customer);
+        sem_wait(&barber);
+
+        printf("Customer is getting a haircut.\n");
+    }
+    else {
+        printf("There are no free seats in the waiting room. Customer is leaving.\n");
+    }
+
+    pthread_exit(NULL);
+}
+
+// barber and customer using semaphores
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+
+#define NUM_CHAIRS 3
+#define NUM_CUSTOMERS 10
+
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t barber_cond = PTHREAD_COND_INITIALIZER;
+pthread_cond_t customer_cond = PTHREAD_COND_INITIALIZER;
+
+int num_customers_waiting = 0;
+int num_customers_served = 0;
+int barber_sleeping = 0;
+
+void barber()
+{
+    while(1) {
+        pthread_mutex_lock(&mutex);
+        if(num_customers_waiting == 0) {
+            barber_sleeping = 1;
+            printf("Barber is sleeping...\n");
+            pthread_cond_wait(&barber_cond, &mutex);
+        }
+        else {
+            barber_sleeping = 0;
+            printf("Barber is cutting hair...\n");
+            num_customers_waiting--;
+            pthread_cond_signal(&customer_cond);
+            pthread_mutex_unlock(&mutex);
+            sleep(rand() % 5);
+            num_customers_served++;
+        }
+        pthread_mutex_unlock(&mutex);
+    }
+}
+
+void customer(int id)
+{
+    pthread_mutex_lock(&mutex);
+    if(num_customers_waiting >= NUM_CHAIRS) {
+        printf("Customer %d is leaving the shop...\n", id);
+        pthread_mutex_unlock(&mutex);
+        return;
+    }
+    num_customers_waiting++;
+    printf("Customer %d is waiting...\n", id);
+    if(barber_sleeping) {
+        printf("Barber is sleeping, waking up barber...\n");
+        pthread_cond_signal(&barber_cond);
+    }
+    else {
+        pthread_cond_signal(&customer_cond);
+    }
+    pthread_mutex_unlock(&mutex);
+    pthread_mutex_lock(&mutex);
+    while(barber_sleeping == 0 && num_customers_waiting > 0) {
+        pthread_cond_wait(&customer_cond, &mutex);
+    }
+    if(num_customers_waiting == 0) {
+        printf("Customer %d is leaving the shop...\n", id);
+        pthread_mutex_unlock(&mutex);
+        return;
+    }
+    printf("Customer %d is getting a haircut...\n", id);
+    pthread_mutex_unlock(&mutex);
+}
+
+int main()
+{
+    pthread_t barber_thread;
+    pthread_t customer_threads[NUM_CUSTOMERS];
+    int ids[NUM_CUSTOMERS];
+    int i;
+
+    srand(time(NULL));
+
+    pthread_create(&barber_thread, NULL, (void*)&barber, NULL);
+    for(i = 0; i < NUM_CUSTOMERS; i++) {
+        ids[i] = i;
+        pthread_create(&customer_threads[i], NULL, (void*)&customer, (void*)&ids[i]);
+        sleep(rand() % 3);
+    }
+
+    for(i = 0; i < NUM_CUSTOMERS; i++) {
+        pthread_join(customer_threads[i], NULL);
+    }
+
+    pthread_cancel(barber_thread);
+
+    printf("%d customers were served today!\n", num_customers_served);
+
+    return 0;
+}
+
+
+// cars and tunnel semaphore's 
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+
+#define NUM_CARS 10
+#define MAX_CARS_IN_TUNNEL 1
+
+enum Direction {
+    NORTH,
+    SOUTH
+};
+
+sem_t mutex; // semaphore to protect critical section
+sem_t north_direction; // semaphore to signal northbound cars
+sem_t south_direction; // semaphore to signal southbound cars
+int num_cars_in_tunnel = 0; // number of cars in the tunnel
+
+void* car(void* arg) {
+    int direction = *(int*)arg;
+    printf("Car arrived from %s\n", direction == NORTH ? "north" : "south");
+    sem_wait(&mutex); // enter critical section
+    if ((direction == NORTH && num_cars_in_tunnel > 0) || 
+        (direction == SOUTH && num_cars_in_tunnel < 0)) {
+        printf("Car from %s has to wait\n", direction == NORTH ? "north" : "south");
+        if (direction == NORTH) {
+            sem_post(&north_direction); // signal northbound cars
+        } else {
+            sem_post(&south_direction); // signal southbound cars
+        }
+        sem_post(&mutex); // leave critical section
+        if (direction == NORTH) {
+            sem_wait(&south_direction); // wait for southbound cars to clear the tunnel
+        } else {
+            sem_wait(&north_direction); // wait for northbound cars to clear the tunnel
+        }
+        sem_wait(&mutex); // re-enter critical section
+    }
+    printf("Car from %s enters the tunnel\n", direction == NORTH ? "north" : "south");
+    num_cars_in_tunnel += direction == NORTH ? 1 : -1; // update number of cars in tunnel
+    sem_post(&mutex); // leave critical section
+    sleep(rand() % 5); // simulate time in tunnel
+    sem_wait(&mutex); // enter critical section
+    printf("Car from %s exits the tunnel\n", direction == NORTH ? "north" : "south");
+    num_cars_in_tunnel -= direction == NORTH ? 1 : -1; // update number of cars in tunnel
+    if (num_cars_in_tunnel == 0) {
+        if (direction == NORTH) {
+            sem_post(&south_direction); // signal southbound cars
+        } else {
+            sem_post(&north_direction); // signal northbound cars
+        }
+    }
+    sem_post(&mutex); // leave critical section
+    pthread_exit(NULL);
+}
+
+int main() {
+    pthread_t threads[NUM_CARS];
+    int directions[NUM_CARS];
+    int i;
+    srand(time(NULL));
+    sem_init(&mutex, 0, 1);
+    sem_init(&north_direction, 0, 1);
+    sem_init(&south_direction, 0, 1);
+    for (i = 0; i < NUM_CARS; i++) {
+        directions[i] = rand() % 2; // randomly generate direction
+        pthread_create(&threads[i], NULL, car, (void*)&directions[i]);
+        sleep(rand() % 2); // simulate arrival time
+    }
+    for (i = 0; i < NUM_CARS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+    sem_destroy(&mutex);
+    sem_destroy(&north_direction);
+    sem_destroy(&south_direction);
+    return 0;
+}
+
+// cars and tunnels using mutex
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+
+#define NUM_THREADS 2
+
+pthread_mutex_t mutex;
+int direction = 0; // 0: North-South, 1: South-North
+
+void* car(void* arg) {
+    int id = *(int*)arg;
+    int dir = rand() % 2; // Randomly choose direction
+
+    // Arrive at the tunnel
+    pthread_mutex_lock(&mutex);
+    printf("Car %d arrived from %s\n", id, dir == 0 ? "North" : "South");
+
+    // Wait for the signal to turn green
+    while(dir != direction) {
+        pthread_mutex_unlock(&mutex);
+        usleep(rand() % 1000); // Wait for a random amount of time
+        pthread_mutex_lock(&mutex);
+    }
+
+    // Enter the tunnel
+    printf("Car %d entered the tunnel from %s\n", id, dir == 0 ? "North" : "South");
+    pthread_mutex_unlock(&mutex);
+
+    // Travel through the tunnel
+    usleep(rand() % 1000); // Simulate traveling through the tunnel
+
+    // Exit the tunnel
+    pthread_mutex_lock(&mutex);
+    printf("Car %d exited the tunnel from %s\n", id, dir == 0 ? "South" : "North");
+
+    // Change the direction if necessary
+    if(direction == dir) {
+        direction = (direction + 1) % 2;
+        printf("Signal light turned %s\n", direction == 0 ? "green (North-South)" : "green (South-North)");
+    }
+
+    pthread_mutex_unlock(&mutex);
+
+    // End of thread
+    pthread_exit(NULL);
+}
+
+int main() {
+    pthread_t threads[NUM_THREADS];
+    int ids[NUM_THREADS];
+    int i;
+
+    srand(time(NULL));
+
+    pthread_mutex_init(&mutex, NULL);
+
+    // Create threads for the cars
+    for(i = 0; i < NUM_THREADS; i++) {
+        ids[i] = i;
+        pthread_create(&threads[i], NULL, car, (void*)&ids[i]);
+    }
+
+    // Wait for all threads to finish
+    for(i = 0; i < NUM_THREADS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    pthread_mutex_destroy(&mutex);
+
+    return 0;
+}
