@@ -1,0 +1,277 @@
+//sample program1
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <pthread.h>
+// Let us create a global variable to change it in threads
+int g = 0;
+// The function to be executed by all threads
+void *myThreadFun(void *vargp)
+{
+// Store the value argument passed to this thread
+int *myid = (int *)vargp;
+// Let us create a static variable to observe its changes
+int s = 0;
+// Change static and global variables
+++s; ++g;
+// Print the argument, static and global variables
+printf("Thread ID: %d, Static: %d, Global: %d\n", *myid, ++s, ++g);
+}
+int main()
+{
+int i;
+pthread_t tid1,tid2,tid3; //variables used to store thread id
+// Let us create three threads
+pthread_create(&tid1, NULL, myThreadFun, (void *)&tid1);
+pthread_create(&tid2, NULL, myThreadFun, (void *)&tid2);
+pthread_create(&tid3, NULL, myThreadFun, (void *)&tid3);
+pthread_join(tid1, NULL);
+pthread_join(tid2, NULL);
+pthread_join(tid3, NULL);
+return 0;
+}
+
+//sample program2
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <pthread.h>
+#include <unistd.h>
+#define NUM_THREADS 5
+void *perform_work(void *arguments)
+{
+int index = *((int *)arguments);
+int sleep_time = 1 + rand() % NUM_THREADS;
+printf("THREAD %d: Started.\n", index);
+printf("THREAD %d: Will be sleeping for %d seconds.\n", index, sleep_time);
+sleep(sleep_time);
+printf("THREAD %d: Ended.\n", index);
+}
+int main(void)
+{
+pthread_t threads[NUM_THREADS];
+int thread_args[NUM_THREADS];
+int i;
+int result_code;
+//create all threads one by one
+for (i = 0; i < NUM_THREADS; i++)
+{
+printf("IN MAIN: Creating thread %d.\n", i);
+thread_args[i] = i;
+result_code = pthread_create(&threads[i], NULL, perform_work, &thread_args[i]);
+}
+printf("IN MAIN: All threads are created.\n");
+//wait for each thread to complete
+for (i = 0; i < NUM_THREADS; i++)
+{
+result_code = pthread_join(threads[i], NULL);
+printf("IN MAIN: Thread %d has ended.\n", i);
+}
+printf("MAIN program has ended.\n");
+return 0;
+}
+
+//Simple Semaphore Code to synchronize 2 threads
+
+#include <stdio.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+sem_t mutex;
+void* thread(void* arg)
+{
+sem_wait(&mutex);
+printf("\nEntered critical section..\n");
+//critical section sode
+sleep(4);
+//signal
+printf("\nJust Exiting critical section...\n");
+sem_post(&mutex);
+}
+int main()
+{
+sem_init(&mutex, 0, 1);
+pthread_t t1,t2;
+pthread_create(&t1,NULL,thread,NULL);
+// sleep(2);
+pthread_create(&t2,NULL,thread,NULL);
+pthread_join(t1,NULL);
+pthread_join(t2,NULL);
+sem_destroy(&mutex);
+return 0;
+}
+
+//Code for readers writers problem
+
+#include<stdio.h>
+#include<pthread.h>
+#include<semaphore.h>
+sem_t mutex,writeblock;
+int data = 0,rcount = 0;
+void *reader(void *arg)
+{
+int f;
+f = ((int)arg);
+sem_wait(&mutex);
+rcount = rcount + 1;
+printf("\nReader %d has arrived \n",f);
+if(rcount==1)
+sem_wait(&writeblock);
+sem_post(&mutex);
+printf("\nReader Entered %d Data read by the reader is %d\n",f,data);
+sleep(4);
+sem_wait(&mutex);
+rcount = rcount - 1;
+printf("\nReader Exiting : %d Remaining Readers:%d \n",f,rcount);
+if(rcount==0)
+{
+printf("\nNo readers Writers can write\n");
+sem_post(&writeblock);
+}
+sem_post(&mutex);
+}
+void *writer(void *arg)
+{
+int f;
+f = ((int) arg);
+printf("\nWriter %d has arrived\n",f);
+sem_wait(&writeblock);
+data++;
+printf("\nWriter Entered %d Data writen by the writer is %d\n",f,data);
+sleep(2);
+printf("\nWriter Exiting : %d\n",f);
+sem_post(&writeblock);
+}
+main()
+{
+int i,b;
+pthread_t rtid[5],wtid[5];
+sem_init(&mutex,0,1);
+sem_init(&writeblock,0,1);
+for(i=0;i<=2;i++)
+{
+pthread_create(&wtid[i],NULL,writer,(void *)i);
+sleep(2);
+pthread_create(&rtid[i],NULL,reader,(void *)i);
+}
+for(i=0;i<=2;i++)
+{
+pthread_join(wtid[i],NULL);
+pthread_join(rtid[i],NULL);
+}
+}
+
+//Cars and tunnels problem
+
+#include<stdio.h>
+#include<pthread.h>
+#include<semaphore.h>
+#include<unistd.h>
+#include<string.h>
+sem_t mutex;
+int southcount=0,northcount=0;
+void* tunnel(void* arg)
+{
+if(strcmp(arg,"North")==0)
+{
+while(southcount>0)
+sem_wait(&mutex);
+northcount++;
+}
+else
+{
+while(northcount>0)
+sem_wait(&mutex);
+southcount++;
+}
+printf("\n %s : Entered \n",(char*)arg);
+//CriticalSection
+//sleep(3);
+printf("\n %s : Exiting \n",(char*)arg);
+if(strcmp(arg,"North")==0)
+{
+northcount--;
+}
+else
+{
+southcount--;
+}
+sem_post(&mutex);
+return 0;
+}
+int main()
+{
+sem_init(&mutex,0,1);
+pthread_t t1,t2,t3,t4,t5,t6,t7,t8;
+char *msg1="North",*msg2="South";
+pthread_create(&t1,NULL,tunnel,(void*)msg1);
+pthread_create(&t2,NULL,tunnel,(void*)msg1);
+pthread_create(&t3,NULL,tunnel,(void*)msg2);
+pthread_create(&t4,NULL,tunnel,(void*)msg2);
+pthread_create(&t5,NULL,tunnel,(void*)msg2);
+pthread_create(&t6,NULL,tunnel,(void*)msg1);
+// pthread_create(&t7,NULL,tunnel,(void*)msg1);
+// pthread_create(&t8,NULL,tunnel,(void*)msg2);
+pthread_join(t1,NULL);
+pthread_join(t2,NULL);
+pthread_join(t3,NULL);
+pthread_join(t4,NULL);
+pthread_join(t5,NULL);
+pthread_join(t6,NULL);
+pthread_join(t7,NULL);
+pthread_join(t8,NULL);
+sem_destroy(&mutex);
+}
+
+//or
+
+#include<stdio.h>
+#include<pthread.h>
+#include<semaphore.h>
+#include<unistd.h>
+#include<string.h>
+sem_t mutexNorth, mutexSouth;
+void* tunnel(void* arg)
+{
+if(strcmp(arg,"North")==0)
+sem_wait(&mutexSouth);
+else
+sem_wait(&mutexNorth);
+printf("\n %s : Entered \n",(char*)arg);
+//CriticalSection
+sleep(3);
+printf("\n %s : Exiting \n",(char*)arg);
+if(strcmp(arg,"North")==0)
+sem_post(&mutexSouth);
+else
+sem_post(&mutexNorth);
+return 0;
+}
+int main()
+{
+sem_init(&mutexNorth,0,1);
+sem_init(&mutexSouth,0,1);
+pthread_t t1,t2,t3,t4,t5,t6,t7,t8;
+char *msg1="North",*msg2="South";
+pthread_create(&t1,NULL,tunnel,(void*)msg1);
+pthread_create(&t2,NULL,tunnel,(void*)msg1);
+pthread_create(&t3,NULL,tunnel,(void*)msg1);
+pthread_create(&t4,NULL,tunnel,(void*)msg2);
+pthread_create(&t5,NULL,tunnel,(void*)msg1);
+pthread_create(&t6,NULL,tunnel,(void*)msg2);
+pthread_create(&t7,NULL,tunnel,(void*)msg1);
+pthread_create(&t8,NULL,tunnel,(void*)msg2);
+pthread_join(t1,NULL);
+pthread_join(t2,NULL);
+pthread_join(t3,NULL);
+pthread_join(t4,NULL);
+pthread_join(t5,NULL);
+pthread_join(t6,NULL);
+pthread_join(t7,NULL);
+pthread_join(t8,NULL);
+sem_destroy(&mutexNorth);
+sem_destroy(&mutexSouth);
+}
+
