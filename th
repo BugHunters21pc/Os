@@ -728,3 +728,130 @@ int main() {
 
     return 0;
 }
+
+
+GREP COMMANDS
+
+GREP COMMANDS
+
+# 1) grep --colour="always" "Linux" file_name1 (file_name2) -> Gives name of the matched pattern
+
+# 2) grep -c "Linux" file_name -> Gives the count of the matched pattern from the file
+
+# 3) grep -A "lines"  "pattern" file_name -> Gives the after lines after the last pattern match
+
+# 4) grep -C "lines" "pattern" file_name -> Gives both after & before lines wrt pattern match
+
+# 5) grep "pattern1 \| pattern2" file_name -> Gives the match from both the pattern
+
+# 6) grep -w "pattern" file_name -> Gives the exact match from the file
+
+# 7) grep "^pattern" file_name ->  Gives the match only if the pattern is present in the start of line
+
+# 8) grep "pattern$" file_name -> Gives the match only if the patten is presnt EOL
+
+# 9) grep "pa...rn" file_name -> Gives the match of pattern with any char in dots ( no of dots = chars )
+
+# 10) grep "patte[rn]" file_name -> Gives the match of pattern with any char in the scope
+
+# 11) grep "patter[^n]" file_name -> Gives the match except the letter in the scope
+
+# 12) grep -E "^[A-Z].*[.,]$" file_name -> Gives the match where starting-Scope1 & ending-Scope2
+#                                          & .* - any no of arbitary char
+
+# 13) Same as above  -E "?pearting" where the ? acts a wildcard for a single char in presence of -E
+
+# .. / .* / ..* -> Different meaning
+
+# 14) grep -E  "p+attern" file_name -> Gives the match
+
+# 15) grep -n/-v ^$ file_name -> Gives the empty lines with no match
+
+# 16) grep "^..$" file_name -> Gives the match
+
+# 17) ls -l | grep '^d' -> Gives the match for the files starting with d
+
+# 18) grep '\<pattern' file_name -> Gives the match for the pattern where it comes inbetween the lines ( \ -> spl char )
+
+# 19) grep 'pattern\>' file_name -> Gives the match for the pattern where it finds in last of the given pattern
+
+# 20) grep 'pattern\{n\}' file_name    -> Gives the match for the pattern it matches upto n times Eg: grep 'L\{2\}' file_name -> Gives match where LL... comes in file
+21) grep 'pattern\{n,\}' file_name -> Same as above but it matches for more than n count
+
+SED COMMANDS
+
+1)  sed 's/life/Knife/' blog.txt
+
+2)  sed 's/life/Knife/2' blog.txt
+
+        -changes the 2 occurence of life to Knife
+
+3)  sed 's/life/Knife/3g' blog.txt
+
+        -changes life to knife from the 3rd occurence to all the occur
+
+4) echo "Welcome to Operating System" | sed 's/\(\b[A-Z]\)/\[\1\]/g'
+        - i fthe 1st letter the word is capital then it puts that in bracket
+        \b - for the begining
+
+5) echo "Welcome to Operating System" | sed 's/\([A-Z]\)/\[\1\]/g'
+
+        - remove \b all the capital
+
+5) echo "Welcome to Operating System" | sed 's/\([a-Z]\)/\[\1\]/g'
+
+        - [a - Z] all the letter both capital and small
+        - [a - z] only small
+
+6) echo "Welcome to Operating System" | sed 's/\(\b[A-Z]\)/\[\1\]/g'
+
+
+7) sed '3s/unix/Linux/' text.txt
+	- the line 1st occurence unix is changed
+
+
+
+-------------------------------all these do not affect the original file only dispalys the various output---------------------
+
+8)  sed '3d' text.txt
+	- deletes the 3rd line
+
+
+9) sed '/unix/d' text.txt
+	- deletes all the line that has pattern "unix"
+
+---------------------------------------------------------------------------------------------------------
+
+10) sed G blog.txt
+	- spaces for each line
+
+11) sed 'G;G' blog.txt
+	- 2 spaces for each line
+
+12) sed 'G;G;G;G;G' blog.txt - 5 spaces
+
+13) sed '/life/{x;p;x;}' blog.txt
+	- leaves one empty line before the line that has the word "life"
+
+14) sed '/love/G' a.txt
+	-Insert a blank line below every line which matches “love” –  
+
+
+15)  sed 's/^/  /'blog.txt
+
+16) sed = blog.txt
+
+	-	numbers each line
+
+17)  sed = blog.txt | sed 'N;s/\n/./'
+	- numbers the line (1.gsdgfhsd)
+
+18)  sed '$d' text.txt
+	- last line is deleted
+
+19)  sed '2d' text.txt  - 2nd line
+
+20 )  sed '1,5d' text.txt - range of lines 1 to 4
+
+21)  sed '1~3d' text.txt 
+	- 1st line deleted and 1+3 = 4 4th line deleted
